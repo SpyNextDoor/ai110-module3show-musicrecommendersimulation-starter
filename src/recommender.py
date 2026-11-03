@@ -51,10 +51,12 @@ class Recommender:
         self.songs = songs
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
+        """Returns the top-k songs for the user."""
         # TODO: Implement recommendation logic
         return self.songs[:k]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
+        """Builds a human-readable explanation for why a song was recommended."""
         # TODO: Implement explanation logic
         return "Explanation placeholder"
 
