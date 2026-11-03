@@ -2,36 +2,15 @@
 
 ## Project Summary
 
-In this project you will build and explain a small music recommender system.
-
-Your goal is to:
-
-- Represent songs and a user "taste profile" as data
-- Design a scoring rule that turns that data into recommendations
-- Evaluate what your system gets right and wrong
-- Reflect on how this mirrors real world AI recommenders
-
-Replace this paragraph with your own summary of what your version does.
+A small music recommender system that represents songs and a user "taste profile" as data, scores songs against that profile, and evaluates what the resulting recommendations get right and wrong.
 
 ---
 
 ## How The System Works
 
-Explain your design in plain language.
-
-Some prompts to answer:
-
-- What features does each `Song` use in your system
-  - For example: genre, mood, energy, tempo
-- What information does your `UserProfile` store
-- How does your `Recommender` compute a score for each song
-- How do you choose which songs to recommend
-
-You can include a simple diagram or bullet list if helpful.
-
 **Real world song suggestions**
 
-In the real world, streaming platforms use a combination of collaborative filtering(CF) and content-based filtering(CBF) to recommend songs that a user might enjoy based on what they are currently playing. If a user's song matches other users, CF assumes that this user might like what those other users are listening to. On the other side, CBF uses the song's metadata such ask mood, genre, danceability to recommend songs that closely align with the user's preferences. A combination of these cast a wide net for recommendations to a user.
+In the real world, streaming platforms use a combination of collaborative filtering (CF) and content-based filtering (CBF) to recommend songs that a user might enjoy based on what they are currently playing. If a user's song matches other users, CF assumes that this user might like what those other users are listening to. On the other side, CBF uses the song's metadata such as mood, genre, and danceability to recommend songs that closely align with the user's preferences. A combination of these casts a wide net for recommendations to a user.
 
 **My design**
 
@@ -98,8 +77,6 @@ You can add more tests in `tests/test_recommender.py`.
 
 ## Sample Recommendation Output
 
-Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
-
 ```
 ==================================================
 TOP RECOMMENDATIONS
@@ -127,8 +104,6 @@ TOP RECOMMENDATIONS
 
 ==================================================
 ```
-
-**Screenshot or video** *(optional)*:
 
 ---
 
@@ -398,27 +373,8 @@ I asked my AI coding assistant to make this exact change and verify the weights 
 
 ---
 
-## Limitations and Risks
-
-Summarize some limitations of your recommender.
-
-Examples:
-
-- It only works on a tiny catalog
-- It does not understand lyrics or language
-- It might over favor one genre or mood
-
-You will go deeper on this in your model card.
-
----
-
 ## Reflection
 
-Read and complete `model_card.md`:
+See [**Model Card**](model_card.md) for a deeper look at bias and limitations.
 
-[**Model Card**](model_card.md)
-
-Write 1 to 2 paragraphs here about what you learned:
-
-- about how recommenders turn data into predictions
-- about where bias or unfairness could show up in systems like this
+<!-- TODO: 1-2 paragraphs on what you learned about how recommenders turn data into predictions, and where bias or unfairness could show up in systems like this. -->
