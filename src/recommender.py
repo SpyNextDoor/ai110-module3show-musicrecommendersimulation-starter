@@ -4,13 +4,15 @@ from typing import List, Dict, Tuple, Optional
 from dataclasses import dataclass
 
 FEATURE_WEIGHTS = {
-    "energy": 0.30,
-    "valence": 0.20,
-    "danceability": 0.20,
-    "acousticness": 0.15,
-    "tempo": 0.15,
+    # Experiment: energy's importance doubled (0.30 -> 0.60 before renormalizing),
+    # then all five weights renormalized so they still sum to 1.0.
+    "energy": 0.4615,
+    "valence": 0.1538,
+    "danceability": 0.1538,
+    "acousticness": 0.1154,
+    "tempo": 0.1154,
 }
-GENRE_BONUS = 0.15
+GENRE_BONUS = 0.075  # Experiment: halved from 0.15
 MOOD_BONUS = 0.05
 
 

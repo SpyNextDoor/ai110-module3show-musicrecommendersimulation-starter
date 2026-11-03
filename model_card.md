@@ -6,70 +6,314 @@
 
 ---
 
-## 2. Intended Use
+## 2. Goal / Task
 
-MusiMist takes a listener's stated preferences (favorite genre, favorite mood, a target energy level, and whether they like acoustic tracks) and ranks a fixed catalog of songs to surface the ones that best match that taste. It returns a top-k list (default 5) along with a short, human-readable reason for each pick, such as "energy match, genre match."
+MusiMist ranks a fixed song catalog for a listener. The listener gives a few preferences: favorite genre, favorite mood, target energy level, and whether they like acoustic tracks. The model scores every song against those preferences. It returns the top-k matches (default 5), each with a short reason like "energy match, genre match."
 
-It assumes the user can describe their taste as a small set of simple preferences rather than a rich listening history — there is no collaborative filtering, no learning from skips/likes over time, and no account for songs the user has already heard. This is a classroom exploration project (CodePath AI110), not a production recommender: the catalog is small and synthetic, and the scoring logic is meant to demonstrate how a simple, explainable content-based scoring system works rather than to compete with real-world streaming recommenders.
-
----
-
-## 3. How the Model Works
-
-Think of every song as having a handful of dials: how energetic it is, how positive/upbeat it feels (valence), how danceable it is, how acoustic it is, and its tempo. The user also sets those same dials for the "vibe" they want, plus two extra preferences: a favorite genre and a favorite mood.
-
-For each song, the model compares the song's dial settings to the user's dial settings, one dial at a time. The closer a song's value is to what the user asked for, the more points that dial earns — a perfect match earns full points, and the points shrink the further apart they are. Each dial doesn't count equally: energy matters most, valence and danceability matter a medium amount, and acousticness and tempo matter somewhat less. These weighted dial scores are added together to get a base score between 0 and 1.
-
-On top of that, the song gets a bonus if its genre exactly matches the user's favorite genre, and a smaller bonus if its mood matches the user's favorite mood. The final score is capped between 0 and 1, and whenever a dial or bonus lines up closely, the model jots down a plain-language reason (like "tempo match" or "genre match") so the recommendation can be explained, not just ranked.
-
-Once every song in the catalog has a score, the model sorts them from highest to lowest and returns the top k as the recommendations.
-
-What changed from the starter logic: the starter code only had empty placeholders (`recommend` returned the first k songs with no scoring, and `explain_recommendation` returned a static placeholder string). The scoring was implemented from scratch as the `score_song` function — weighted similarity on energy/valence/danceability/acousticness/tempo, plus genre and mood bonuses — and `recommend_songs` was added to score the whole catalog, sort it, and attach a reasons string to each result.
+It does not predict future listens or learn from behavior. It only ranks the catalog it already has, based on the preferences given in that moment.
 
 ---
 
-## 4. Data
+## 3. Data Used
 
-The catalog (`data/songs.csv`) contains 30 songs, each with a title, artist, genre, mood, and numeric attributes (energy, tempo, valence, danceability, acousticness).
+The catalog is `data/songs.csv`. It has 30 songs. Each song has a title, artist, genre, mood, and five numeric features: energy, tempo, valence, danceability, and acousticness.
 
-Genres represented include afrobeats, ambient, bossa nova, choral, classical, country, edm, experimental, folk, gospel, hip hop, indie pop, jazz, k-pop, lofi, metal, neo-soul, pacific fusion, pop, r&b, reggae, reggaeton, rock, soul, synthwave, trap, and world fusion. Moods include anxious, chill, confident, dreamy, energetic, euphoric, focused, happy, hopeful, intense, jubilant, melancholic, moody, nostalgic, peaceful, playful, rebellious, relaxed, romantic, sensual, somber, tense, tranquil, triumphant, uplifting, and wistful.
+The catalog covers 27 genres and 26 moods, including afrobeats, ambient, bossa nova, classical, edm, folk, hip hop, jazz, k-pop, lofi, pop, r&b, rock, and more. I added about 20 songs and a sample user profile to the original starter catalog.
 
-I added roughly 20 additional songs and a sample user profile to the original starter catalog, broadening the mix of genres and moods beyond what was initially provided. Since it's a hand-built, 30-song dataset, musical taste is still thinly represented — there's only one or two songs per genre/mood combination, no real listener data (play counts, skip rates, lyrics, language, or regional popularity), and no way to capture tastes that blend multiple genres or moods at once.
-
----
-
-## 5. Strengths
-
-The model works best for listeners who can state a clear, single "vibe" — a target energy level plus one favorite genre and mood — since the weighted scoring is built around rewarding closeness to one target, not balancing multiple competing tastes. For these straightforward profiles, the top recommendations consistently match the requested genre and energy level, and the reasons list makes it easy to verify the score "makes sense" (e.g., a high-energy edm fan with a dance preference reliably gets high-energy, danceable tracks near the top).
-
-The feature-similarity math (1 minus the absolute difference) captures the intuitive pattern that "closer is better" smoothly, rather than treating matches as all-or-nothing, so songs that are close-but-not-exact on energy or tempo still rank reasonably rather than being thrown out. The genre and mood bonuses also correctly boost songs that are an exact match without overwhelming the underlying feature similarity.
+**Limits:** With only 30 songs across so many genres and moods, most genre/mood combinations have just one or two matching songs. There's no real listener data — no play counts, skip rates, lyrics, language, or popularity. The model also can't represent a listener whose taste blends two genres or moods at once.
 
 ---
 
-## 6. Limitations and Bias
+## 4. Algorithm Summary
 
-The model only considers the five numeric features plus genre and mood — it has no notion of artist familiarity, lyrical content, language, popularity, or release era, so it can't account for a listener who cares about those things. Genres and moods with only one or two songs in the catalog (e.g., choral, pacific fusion, world fusion) are underrepresented, so a user whose favorite genre is one of these has very few candidates to be recommended regardless of how well they'd otherwise match.
+Every song has five "dials": energy, valence, danceability, acousticness, and tempo. The listener sets target values for the same dials, plus a favorite genre and mood.
 
-Because genre and mood matches are flat bonuses, a user who sets a favorite genre can end up with recommendations that all share that one genre even when the underlying feature values (energy, valence, etc.) are a mediocre fit — the model can overfit to the genre/mood preference and under-weight the "vibe" dials. The fixed feature weights (energy weighted highest) also mean the model implicitly favors users whose taste happens to hinge on energy and valence over users whose taste is more about acousticness or tempo, since those features count for less in the total score regardless of the individual listener's priorities.
+For each dial, the model checks how close the song's value is to the listener's target. A perfect match earns full points; the score shrinks as the gap grows. Dials don't count equally — energy matters most, valence and danceability matter a medium amount, and acousticness and tempo matter less. Adding up the weighted dials gives a base score from 0 to 1.
 
----
+On top of that, a song gets a bonus if its genre matches the listener's favorite genre, and a smaller bonus if its mood matches. The final score is capped at 0–1. Whenever a dial or bonus lines up closely, the model records a plain-language reason (like "tempo match") so each pick can be explained.
 
-## 7. Evaluation
-
-I tested a few user profiles by hand: a high-energy dance-pop fan (high target energy, danceability-leaning, genre "pop"), a mellow acoustic listener (low target energy, `likes_acoustic=True`, genre "folk" or "jazz"), and a mood-driven listener (favorite mood "chill" or "melancholic" with no strong genre preference). For each, I checked that the top-5 results had the requested genre/mood appearing near the top, that the reasons string lined up with the score (e.g., songs flagged with "energy match" did have energy close to the target), and that scores were sorted correctly from highest to lowest.
-
-What stood out was how much the flat genre/mood bonuses can override close-but-imperfect feature matches — a song with a matching genre but middling energy/valence fit could still outrank a non-matching-genre song with an almost-perfect feature fit, which shows the bonus weights (0.15 genre, 0.05 mood) have real influence on ranking order, not just a tiebreaker effect. No formal numeric metrics (precision/recall, etc.) were computed, since there's no ground-truth "correct" ranking to compare against — evaluation was done by spot-checking plausibility.
+The model scores the whole catalog, sorts it high to low, and returns the top k.
 
 ---
 
-## 8. Future Work
+## 5. Observed Behavior / Biases
 
-Future versions could let users weight their own preferences (e.g., "I care more about mood than genre") instead of using one fixed set of feature weights for everyone. The explanation reasons could be made richer — e.g., stating by how much a feature matched, or ranking which factor contributed most to the score — rather than a flat list of matched feature names.
+**Mood barely matters.** Mood is worth only a small +0.05 bonus, while the five numeric dials make up most of the score. For example, "Gym Hero" (mood: intense) tied for the #1 pick for a listener who asked for mood "happy," just because its energy, danceability, and tempo were a near-perfect fit. Mood acts more like a tie-breaker than a real filter.
 
-To improve diversity among the top results, the model could penalize recommending multiple songs from the same artist or genre in the same top-k list, or re-rank for variety after initial scoring. It could also support more complex, multi-dimensional tastes, such as blending two favorite genres or moods, or inferring preferences from a short list of songs the user already likes rather than requiring explicit dial values.
+**Genre can crowd out fit.** Because genre match is a flat bonus, results can skew toward one genre even when the underlying dials are a mediocre fit for that listener.
+
+**Fixed weights favor energy-driven tastes.** Since energy is weighted highest, listeners whose taste hinges on tempo or acousticness are underserved relative to listeners whose taste hinges on energy and valence.
+
+**Underrepresented genres get thin results.** Genres with only one or two songs (e.g., choral, pacific fusion, world fusion) can't produce a strong top-5 no matter how good the match is.
+
+---
+
+## 6. Evaluation Process
+
+I tested seven user profiles through `src/main.py`: three realistic listeners (High-Energy Pop, Chill Lofi, Deep Intense Rock) and four adversarial edge cases (conflicting energy/mood, out-of-range feature values, empty preferences, and an unknown genre/mood).
+
+For each profile, I checked three things: did the requested genre/mood show up near the top, did the listed reasons match the song's real attributes, and were scores sorted correctly.
+
+I also compared profiles pairwise. Opposite-taste profiles (e.g., High-Energy Pop vs. Chill Lofi) shared almost no songs, which is expected. Similar-energy profiles with different genres (High-Energy Pop vs. Deep Intense Rock) overlapped somewhat but still diverged on valence, which is also expected.
+
+Two adversarial cases broke the model the same way: out-of-range values (e.g., danceability of 2.0) and empty preferences both caused every song to score 0.00, with no warning to the user that the result was meaningless. An unknown genre/mood did not break anything — it just fell back to pure numeric similarity.
+
+As a follow-up, I doubled energy's weight and halved the genre bonus, then re-ran all seven profiles. Energy-extreme profiles barely changed at the top. The low-energy Chill Lofi profile got worse: genre-matching lofi tracks slipped down in favor of tracks that were merely energy-closer. This confirmed the bias in Section 5 — favoring energy weighting doesn't make results more accurate, just different.
+
+No formal metrics (precision/recall) were computed, since there's no ground-truth ranking to compare against. Evaluation was done by checking plausibility across profiles.
+
+---
+
+## 7. Intended Use and Non-Intended Use
+
+**Intended use:** A classroom demo (CodePath AI110) of a simple, explainable, content-based recommender. It's meant for listeners who can state one clear "vibe" — a target energy plus one favorite genre and mood.
+
+**Not intended for:**
+
+- Production or commercial recommendation — the catalog is small and synthetic.
+- Listeners with mixed or multi-genre tastes — the model assumes one dominant preference.
+- Any input validation step — out-of-range values silently break scoring instead of raising an error.
+- Modeling real listening behavior — there's no collaborative filtering and no memory of past plays or skips.
+
+---
+
+## 8. Ideas for Improvement
+
+1. **Let users weight their own preferences.** Right now one fixed weight set applies to everyone. User-adjustable weights would reduce the energy bias in Section 5.
+2. **Validate inputs.** Reject or clamp out-of-range values instead of silently returning a meaningless 0.00 ranking.
+3. **Add diversity re-ranking.** Penalize multiple songs from the same artist or genre in one top-k list, so results don't collapse into a single narrow cluster.
 
 ---
 
 ## 9. Personal Reflection
 
-Prior to this project, I did not know anything about music recommendation which I believe might be the same logic with movie recommations. I learned that you can either use songs that the user share with a wider audience or just base on the metadata of those they listen to. I now know why spotify suggest the songs that I listen to. But how do streaming softwares know how to balance CF and CBF?
+Before this project, I didn't know much about music recommendation — it seems to share logic with movie recommendation. I learned that recommenders can use what other listeners share, or just the metadata of what one person listens to. I now understand why Spotify suggests certain songs. Open question: how do streaming services balance collaborative filtering and content-based filtering?
+
+AI tools helped me mostly by identifying loopholes in my design, but they also suggested some complex methods I didn't necessarily need, so I consulted Google as well — for instance, AI suggested using a bell-curve for calibration, but I realized that for small differences it would ignore them, and a simple system like this didn't need that. What surprised me most was seeing the calibration method used to keep all the different metric systems standardized — I learned it in math a long time ago and was surprised to see it in action. If I extended this project, I would make sure the app isn't biased toward the type of artists in `songs.csv`, by including all genders and races, and I would add another scoring metric like lyrical content, since I personally enjoy songs with rich lyrical content even when they fall outside my usual taste.
+
+---
+
+## Appendix A: Sample Outputs
+
+```
+==================================================
+TOP RECOMMENDATIONS — High-Energy Pop
+==================================================
+Profile: {'genre': 'pop', 'mood': 'happy', 'energy': 0.9, 'valence': 0.85, 'danceability': 0.9, 'acousticness': 0.1, 'tempo': 128}
+
+1. Sunrise City (by Neon Echo)
+   Score:   1.00
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match, genre match, mood match
+
+2. Gym Hero (by Max Pulse)
+   Score:   1.00
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match, genre match
+
+3. Pulse Horizon (by Kai Nakamura)
+   Score:   0.97
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match
+
+4. Rooftop Lights (by Indigo Parade)
+   Score:   0.94
+   Reasons: energy match, valence match, danceability match, tempo match, mood match
+
+5. Lagos Nights (by Ngozi Adeyemi)
+   Score:   0.94
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Chill Lofi
+==================================================
+Profile: {'genre': 'lofi', 'mood': 'relaxed', 'energy': 0.2, 'valence': 0.5, 'danceability': 0.3, 'acousticness': 0.7, 'tempo': 75}
+
+1. Midnight Coding (by LoRoom)
+   Score:   1.00
+   Reasons: valence match, acousticness match, tempo match, genre match
+
+2. Library Rain (by Paper Lanterns)
+   Score:   1.00
+   Reasons: energy match, valence match, tempo match, genre match
+
+3. Focus Flow (by LoRoom)
+   Score:   0.99
+   Reasons: valence match, acousticness match, tempo match, genre match
+
+4. Still Waters (by Mei Lin Zhao)
+   Score:   0.91
+   Reasons: energy match, valence match, danceability match, tempo match
+
+5. Emerald Hills (by Siobhan O'Malley)
+   Score:   0.91
+   Reasons: energy match, valence match, danceability match, tempo match
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Deep Intense Rock
+==================================================
+Profile: {'genre': 'rock', 'mood': 'intense', 'energy': 0.95, 'valence': 0.4, 'danceability': 0.4, 'acousticness': 0.05, 'tempo': 150}
+
+1. Storm Runner (by Voltline)
+   Score:   1.00
+   Reasons: energy match, valence match, acousticness match, tempo match, genre match, mood match
+
+2. Iron Reckoning (by Bjorn Eriksson)
+   Score:   0.93
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match
+
+3. Shadow Walk (by Tyrese Banks)
+   Score:   0.85
+   Reasons: energy match, valence match, acousticness match, tempo match
+
+4. Gym Hero (by Max Pulse)
+   Score:   0.85
+   Reasons: energy match, acousticness match, tempo match, mood match
+
+5. Night Drive Loop (by Neon Echo)
+   Score:   0.78
+   Reasons: valence match
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Adversarial: Conflicting Energy/Mood
+==================================================
+Profile: {'genre': 'pop', 'mood': 'sad', 'energy': 0.9, 'valence': 0.1, 'danceability': 0.85, 'acousticness': 0.05, 'tempo': 140}
+
+1. Gym Hero (by Max Pulse)
+   Score:   0.99
+   Reasons: energy match, danceability match, acousticness match, tempo match, genre match
+
+2. Sunrise City (by Neon Echo)
+   Score:   0.92
+   Reasons: energy match, danceability match, acousticness match, genre match
+
+3. Shadow Walk (by Tyrese Banks)
+   Score:   0.89
+   Reasons: energy match, danceability match, acousticness match, tempo match
+
+4. Storm Runner (by Voltline)
+   Score:   0.86
+   Reasons: energy match, acousticness match, tempo match
+
+5. Iron Reckoning (by Bjorn Eriksson)
+   Score:   0.85
+   Reasons: energy match, acousticness match
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Adversarial: Out-of-Range Values
+==================================================
+Profile: {'genre': 'edm', 'mood': 'euphoric', 'energy': 1.5, 'valence': -0.3, 'danceability': 2.0, 'acousticness': 0.0, 'tempo': 999}
+
+1. Sunrise City (by Neon Echo)
+   Score:   0.00
+   Reasons: no strong matches
+
+2. Midnight Coding (by LoRoom)
+   Score:   0.00
+   Reasons: no strong matches
+
+3. Storm Runner (by Voltline)
+   Score:   0.00
+   Reasons: acousticness match
+
+4. Library Rain (by Paper Lanterns)
+   Score:   0.00
+   Reasons: no strong matches
+
+5. Gym Hero (by Max Pulse)
+   Score:   0.00
+   Reasons: acousticness match
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Adversarial: Empty Preferences
+==================================================
+Profile: {}
+
+1. Sunrise City (by Neon Echo)
+   Score:   0.00
+   Reasons: no strong matches
+
+2. Midnight Coding (by LoRoom)
+   Score:   0.00
+   Reasons: no strong matches
+
+3. Storm Runner (by Voltline)
+   Score:   0.00
+   Reasons: no strong matches
+
+4. Library Rain (by Paper Lanterns)
+   Score:   0.00
+   Reasons: no strong matches
+
+5. Gym Hero (by Max Pulse)
+   Score:   0.00
+   Reasons: no strong matches
+
+==================================================
+
+
+==================================================
+TOP RECOMMENDATIONS — Adversarial: Unknown Genre/Mood
+==================================================
+Profile: {'genre': 'death-polka', 'mood': 'ecstatic-fear', 'energy': 0.5, 'valence': 0.5, 'danceability': 0.5, 'acousticness': 0.5, 'tempo': 110}
+
+1. Dust Road Letters (by Marcus Bellweather)
+   Score:   0.91
+   Reasons: energy match, valence match, danceability match
+
+2. Monsoon Heart (by Priya Nair)
+   Score:   0.89
+   Reasons: energy match, danceability match, acousticness match
+
+3. Tears in the Hallway (by Keisha Johnson)
+   Score:   0.88
+   Reasons: energy match, valence match, danceability match, acousticness match
+
+4. Midnight Coding (by LoRoom)
+   Score:   0.87
+   Reasons: energy match, valence match, danceability match
+
+5. Velvet Hours (by Jamal Whitfield)
+   Score:   0.86
+   Reasons: energy match, danceability match, acousticness match
+
+==================================================
+```
+
+---
+
+## Appendix B: Sensitivity Experiment — Weight Shift
+
+To test sensitivity to the fixed weights, I doubled energy's relative weight (0.30 → 0.60 before renormalizing) and halved the genre bonus (0.15 → 0.075), then renormalized the five feature weights to sum to 1.0:
+
+```python
+FEATURE_WEIGHTS = {
+    "energy": 0.4615,       # was 0.30
+    "valence": 0.1538,      # was 0.20
+    "danceability": 0.1538, # was 0.20
+    "acousticness": 0.1154, # was 0.15
+    "tempo": 0.1154,        # was 0.15
+}
+GENRE_BONUS = 0.075  # was 0.15 (halved)
+```
+
+Results after re-running all seven profiles:
+
+- Energy-extreme profiles (High-Energy Pop, Deep Intense Rock) barely changed at the top, but lower ranks reshuffled as genre mattered less.
+- Chill Lofi (low-energy target) got worse: genre-matching lofi tracks slipped down in favor of tracks that were merely energy-closer.
+- The Conflicting Energy/Mood profile skewed more toward loud tracks, since halving the genre bonus removed one of the few counterweights.
+- Out-of-Range and Empty Preferences were unaffected — they already collapse to a 0.00 tie before weight ratios matter.
+
+**Conclusion:** the results became different, not more accurate — and arguably worse for Chill Lofi. This confirms the bias in Section 5: fixed global weights favor energy-driven tastes, and raising that weight further only sharpens the favoritism.
