@@ -29,6 +29,25 @@ Some prompts to answer:
 
 You can include a simple diagram or bullet list if helpful.
 
+**Real world song suggestions**
+
+In the real world, streaming platforms use a combination of collaborative filtering(CF) and content-based filtering(CBF) to recommend songs that a user might enjoy based on what they are currently playing. If a user's song matches other users, CF assumes that this user might like what those other users are listening to. On the other side, CBF uses the song's metadata such ask mood, genre, danceability to recommend songs that closely align with the user's preferences. A combination of these cast a wide net for recommendations to a user.
+
+**My design**
+
+My recommender uses pure content-based filtering: it compares each song's audio features against the user's preferred values and scores how close the match is, rather than looking at what other users listened to. Each numeric feature gets its own distance-based score between 0 and 1, these are combined into a weighted total, and then a genre or mood match adds a small bonus on top. This keeps the scoring rule (how good is this one song for this user) separate from the ranking rule (sort all scored songs and return the top N).
+
+- **Features used**: `energy`, `valence`, `danceability`, `acousticness`, and `tempo_bpm` (normalized), compared against the user's preferred value for each.
+- **Scoring formula per feature**: `score = 1 - |song_value - user_preference|`, since these features already sit on a 0–1 scale.
+- **Tempo scoring**: `tempo_bpm` isn't 0–1, so it's normalized by the catalog's range first: `score = 1 - |song_tempo - user_preferred_tempo| / (max_tempo - min_tempo)`.
+- **Total score**: a weighted sum of the five feature scores, `total_score = w1*score_energy + w2*score_valence + w3*score_danceability + w4*score_acousticness + w5*score_tempo`, with weights summing to 1.0 so the base score stays interpretable as a 0–1 similarity.
+- **Genre and mood bonuses**: a flat `+0.15` is added if `genre` matches the user's preference, and `+0.05` if `mood` matches. Genre is weighted higher than mood because it reflects a more stable, long-term taste signal, while mood is more situational.
+- **Final score is clamped** at 1.0 so it stays readable as a similarity percentage even after bonuses are added.
+- **Ranking**: once every song has a final score, songs are sorted in descending order and the top N are returned as recommendations.
+
+**Algorithm Recipe**
+
+
 ---
 
 ## Getting Started
@@ -41,7 +60,7 @@ You can include a simple diagram or bullet list if helpful.
    python -m venv .venv
    source .venv/bin/activate      # Mac or Linux
    .venv\Scripts\activate         # Windows
-
+   ```
 2. Install dependencies
 
 ```bash
@@ -79,7 +98,7 @@ Paste a sample of your recommender's output here as a text block so a reader can
 #   3. ...
 ```
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or demo video link here -->
+**Screenshot or video** *(optional)*:
 
 ---
 
@@ -117,6 +136,3 @@ Write 1 to 2 paragraphs here about what you learned:
 
 - about how recommenders turn data into predictions
 - about where bias or unfairness could show up in systems like this
-
-
-
