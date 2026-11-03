@@ -47,6 +47,17 @@ My recommender uses pure content-based filtering: it compares each song's audio 
 
 **Algorithm Recipe**
 
+1. Start with every song in the catalog — no pre-filtering.
+2. For each numeric feature, compute a per-feature score (distance-based, normalized for tempo).
+3. Combine into a weighted base score (weights sum to 1.0).
+4. Apply genre (+0.15) and mood (+0.05) bonuses.
+5. Clamp the final score to a max of 1.0 (and min of 0.0, to be safe).
+6. Rank all songs by final score, descending.
+7. **Tie-breaking** (when two songs have the same final score):
+   * Prefer the song whose `genre` matches the user's preferred genre.
+   * If still tied, prefer the song whose `energy` is closer to the user's preferred energy (smaller `abs(song_energy - user_energy)` wins).
+8. Return the top N songs as the recommendation list.
+9. **NB: Bias** --> my design prioritizes genre because mood is something that changes, but listeners are usually committed to a particular genre.
 
 ---
 
@@ -90,12 +101,31 @@ You can add more tests in `tests/test_recommender.py`.
 Paste a sample of your recommender's output here as a text block so a reader can see what it produces:
 
 ```
-# e.g.:
-# User profile: genre=indie, mood=chill, energy=low
-# Recommendations:
-#   1. ...
-#   2. ...
-#   3. ...
+==================================================
+TOP RECOMMENDATIONS
+==================================================
+
+1. Requiem for Dawn (by Dmitri Volkov)
+   Score:   0.90
+   Reasons: energy match, valence match, danceability match, acousticness match, tempo match
+
+2. Tears in the Hallway (by Keisha Johnson)
+   Score:   0.89
+   Reasons: energy match, valence match, tempo match
+
+3. Emerald Hills (by Siobhan O'Malley)
+   Score:   0.87
+   Reasons: energy match, danceability match, acousticness match, tempo match
+
+4. Focus Flow (by LoRoom)
+   Score:   0.84
+   Reasons: energy match, acousticness match, tempo match
+
+5. Dust Road Letters (by Marcus Bellweather)
+   Score:   0.84
+   Reasons: energy match, acousticness match
+
+==================================================
 ```
 
 **Screenshot or video** *(optional)*:
