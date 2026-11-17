@@ -58,8 +58,12 @@ def score_groundedness(explanation: str, allowed_vocab: set) -> float:
     """
     Fraction of meaningful words in the explanation that are supported by the
     allowed vocabulary. 1.0 = fully grounded, 0.0 = no overlap at all.
-    An explanation with no checkable content words is treated as trivially grounded.
+    An empty explanation is never grounded. One with content words but none
+    checkable (e.g. only stopwords) is treated as trivially grounded.
     """
+    if not explanation.strip():
+        return 0.0
+
     tokens = _tokenize(explanation)
     if not tokens:
         return 1.0

@@ -23,7 +23,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 GROUNDEDNESS_THRESHOLD = 0.6
-CLAUDE_MODEL = "claude-sonnet-5-5"
+CLAUDE_MODEL = "claude-haiku-5-5"
 
 
 @dataclass
@@ -65,10 +65,17 @@ def _call_claude(prompt: str) -> str:
     client = anthropic.Anthropic()
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=150,
+        max_tokens=600,
         messages=[{"role": "user", "content": prompt}],
     )
-    return "".join(block.text for block in response.content if block.type == "text").strip()
+    text = "".join(block.text for block in response.content if block.type == "text").strip()
+    if not text:
+        logger.warning(
+            "Claude returned no text content (stop_reason=%s, block_types=%s)",
+            response.stop_reason,
+            [block.type for block in response.content],
+        )
+    return text
 
 
 def generate_explanation(
@@ -93,6 +100,12 @@ def generate_explanation(
         generated_text = _call_claude(prompt)
     except Exception:
         logger.exception("Claude API call failed for song %s; falling back to deterministic explanation", song.get("id"))
+        return ExplanationResult(
+            text=fallback_text, used_llm=False, grounded=True, groundedness_score=1.0, sources=sources
+        )
+
+    if not generated_text:
+        logger.warning("Claude returned an empty explanation for song %s; falling back", song.get("id"))
         return ExplanationResult(
             text=fallback_text, used_llm=False, grounded=True, groundedness_score=1.0, sources=sources
         )
