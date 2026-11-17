@@ -57,21 +57,73 @@ My recommender uses pure content-based filtering: it compares each song's audio 
 pip install -r requirements.txt
 ```
 
-3. Run the app:
+3. (Optional) Enable AI-generated explanations by setting an Anthropic API key:
 
 ```bash
-python -m src.main
+export ANTHROPIC_API_KEY="your-key-here"   # Mac/Linux
+set ANTHROPIC_API_KEY=your-key-here        # Windows
+```
+
+   This step is optional. Without a key, the app still runs correctly and prints a
+   deterministic, rule-based explanation for every recommendation — see
+   [AI Features](#-ai-features-rag-powered-explanations) below.
+
+4. Run the app:
+
+```bash
+PYTHONPATH=src python src/main.py
 ```
 
 ### Running Tests
 
-Run the starter tests with:
+Run the full test suite (including the retrieval/groundedness/explanation tests, all of
+which run offline with no API key required) with:
 
 ```bash
 pytest
 ```
 
-You can add more tests in `tests/test_recommender.py`.
+You can add more tests in `tests/test_recommender.py`, `tests/test_retrieval.py`,
+`tests/test_groundedness.py`, or `tests/test_explain.py`.
+
+---
+
+## 🤖 AI Features: RAG-Powered Explanations
+
+Beyond the deterministic `score_song` reasons (e.g. `"energy match, genre match"`), each
+recommendation also gets a natural-language explanation generated with
+**retrieval-augmented generation (RAG)**. This is fully wired into the main recommendation
+flow in `src/main.py` — it's not a side script — and it changes what gets printed for
+every recommendation.
+
+**Pipeline** (`src/retrieval.py` → `src/explain.py` → `src/groundedness.py`):
+
+1. **Retrieve.** `KnowledgeBase` (`src/retrieval.py`) loads a small local corpus —
+   one note per song, one per genre, one per mood (`data/knowledge/*.json`) — and
+   indexes it with TF-IDF (`scikit-learn`). For a given recommendation, it returns the
+   song's own note plus the most similar genre/mood notes by cosine similarity.
+2. **Generate.** `src/explain.py` builds a prompt containing *only* the retrieved notes,
+   the computed score, and the computed match reasons, then asks Claude to explain the
+   recommendation in 1-2 sentences using only those facts — not general knowledge about
+   the (fictional) song or artist.
+3. **Validate (reliability guardrail).** `src/groundedness.py` checks the generated text
+   against an "allowed vocabulary" built from the retrieved notes and match reasons, and
+   scores what fraction of the explanation's words are actually backed by that source
+   material. If the score falls below a threshold (default `0.6`), the explanation is
+   considered hallucinated and is swapped out for a safe, deterministic fallback before
+   it's ever shown.
+
+**Guardrails for reproducibility:**
+- No `ANTHROPIC_API_KEY`? The app logs this once and uses the deterministic fallback for
+  every explanation — it never crashes or blocks on a missing key.
+- API call fails (network, rate limit, etc.)? The exception is logged and the
+  deterministic fallback is used for that recommendation.
+- Generated explanation isn't grounded in the retrieved facts? It's replaced before
+  display, and the swap is logged and shown inline as `[UNGROUNDED, reverted to fallback]`.
+
+All of this is logged to `logs/app.log` (INFO and above) — every retrieval, every
+fallback, every groundedness failure — so you can audit what the system actually did on
+a given run. Only warnings and above also print to the console, so normal runs stay readable.
 
 ---
 

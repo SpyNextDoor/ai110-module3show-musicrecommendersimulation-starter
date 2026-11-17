@@ -9,7 +9,26 @@ You will implement the functions in recommender.py:
 - recommend_songs
 """
 
+import logging
+import os
+
 from recommender import load_songs, recommend_songs
+from retrieval import KnowledgeBase
+from explain import generate_explanation
+
+LOG_DIR = os.path.join(os.path.dirname(__file__), "..", "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+file_handler = logging.FileHandler(os.path.join(LOG_DIR, "app.log"))
+file_handler.setLevel(logging.INFO)
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.WARNING)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+    handlers=[file_handler, console_handler],
+)
 
 USER_PROFILES = {
     "High-Energy Pop": {
@@ -71,7 +90,7 @@ USER_PROFILES = {
 }
 
 
-def print_recommendations(name: str, user_prefs: dict, recommendations) -> None:
+def print_recommendations(name: str, user_prefs: dict, recommendations, kb: KnowledgeBase) -> None:
     print("\n" + "=" * 50)
     print(f"TOP RECOMMENDATIONS — {name}")
     print("=" * 50)
@@ -81,15 +100,21 @@ def print_recommendations(name: str, user_prefs: dict, recommendations) -> None:
         print(f"   Score:   {score:.2f}")
         reasons = explanation if explanation else "no strong matches"
         print(f"   Reasons: {reasons}")
+
+        result = generate_explanation(kb, user_prefs, song, score, reasons)
+        tag = "LLM" if result.used_llm else "fallback"
+        grounded_tag = "" if result.grounded else " [UNGROUNDED, reverted to fallback]"
+        print(f"   AI Explanation ({tag}{grounded_tag}): {result.text}")
     print("\n" + "=" * 50 + "\n")
 
 
 def main() -> None:
     songs = load_songs("data/songs.csv")
+    kb = KnowledgeBase()
 
     for name, user_prefs in USER_PROFILES.items():
         recommendations = recommend_songs(user_prefs, songs, k=5)
-        print_recommendations(name, user_prefs, recommendations)
+        print_recommendations(name, user_prefs, recommendations, kb)
 
 
 if __name__ == "__main__":
